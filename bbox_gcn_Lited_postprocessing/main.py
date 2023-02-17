@@ -10,7 +10,7 @@ import dateutil.tz
 import torch
 import torchvision.transforms as transforms
 from miscc.config import cfg, cfg_from_file
-# config environment
+# config environment s
 dir_path = (os.path.abspath(os.path.join(os.path.realpath(__file__), './.')))
 sys.path.append(dir_path)
 
