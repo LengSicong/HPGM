@@ -1,7 +1,7 @@
 CONFIG_NAME: '3stages'
 
 DATASET_NAME: 'layout'
-DATA_DIR: '/home/chenqi/dataset/layout_new'
+DATA_DIR: '/home/sicong/HPGM/dataset/layout'
 GPU_ID: '0'
 WORKERS: 0
 
