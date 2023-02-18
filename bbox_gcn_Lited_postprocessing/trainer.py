@@ -351,8 +351,8 @@ class LayoutTrainer(object):
             self.training_error.append(err_total)
             # plot
             plt.figure(0)
-            plt.plot(self.training_epoch, self.training_error, color="r", linestyle="-", linewidth=1, label="training")
-            plt.plot(self.testing_epoch, self.testing_error, color="b", linestyle="-", linewidth=1, label="testing")
+            plt.plot(self.training_epoch, [train_error.cpu().detach().numpy() for train_error in self.training_error], color="r", linestyle="-", linewidth=1, label="training")
+            plt.plot(self.testing_epoch, [test_error.cpu().detach().numpy() for test_error in self.testing_error], color="b", linestyle="-", linewidth=1, label="testing")
             plt.xlabel("epoch")
             plt.ylabel("loss")
             plt.legend(loc='best')

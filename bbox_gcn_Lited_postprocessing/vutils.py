@@ -190,6 +190,8 @@ def draw_box(image, curr_box, label):
     image[:, y1:y2, x2:x2 + 3] = label/13.0
     return image
 
+def cmp(a, b):
+    return (a > b) - (a < b)
 
 def make_grid_floor_plan(tensor, box, nrow=8, padding=2,
               normalize=False, range=None, 
@@ -246,7 +248,9 @@ def make_grid_floor_plan(tensor, box, nrow=8, padding=2,
                 x1, y1, x2, y2 = curr_box[0], curr_box[1], curr_box[2], curr_box[3]
                 sorted_box[z] = (x2-x1)*(y2-y1)
             # to get sorted id
-            sorted_box = sorted(sorted_box.items(), lambda x, y: cmp(x[1], y[1]), reverse=True)
+            import functools
+            sorted_box = sorted(sorted_box.items(), key=functools.cmp_to_key(lambda x, y: cmp(x, y)), reverse=True)
+            # sorted_box = sorted(sorted_box.items(), lambda x, y: cmp(x[1], y[1]), reverse=True)
 
             # obtain the sorted box and corresponding label
             for m in irange(num_curr_box):
@@ -292,7 +296,7 @@ def draw_floor_plan(image, curr_box, label):
     image[:, y1:y2, x2-wall_thickness:x2+wall_thickness] = wall_symbol
     return image
 
-
+xrange = range
 def save_image(tensor, filename, nrow=8, padding=2,
                normalize=False, range=None, scale_each=False, pad_value=0):
     """Save a given Tensor into an image file.

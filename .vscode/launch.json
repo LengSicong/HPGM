@@ -11,7 +11,8 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["--cfg","cfg/layout.yml","--gpu","0"]
+            "args": ["--cfg","cfg/layout.yml","--gpu","0"],
+            "cwd": "${workspaceFolder}/bbox_gcn_Lited_postprocessing"
         }
     ]
 }

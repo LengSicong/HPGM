@@ -87,7 +87,7 @@ class TextDataset(data.Dataset):
             # load train id of the dataset
             filepath = os.path.join(data_dir, 'train_id.pickle')
             with open(filepath, 'rb') as f:
-                train_id = pickle.load(f)
+                train_id = pickle.load(f, encoding='latin1')
             train_id = sorted(train_id)
             # build training filenames
             self.filenames_train = []
@@ -109,7 +109,7 @@ class TextDataset(data.Dataset):
             # load train id of the dataset
             filepath = os.path.join(data_dir, 'test_id.pickle')
             with open(filepath, 'rb') as f:
-                test_id = pickle.load(f)
+                test_id = pickle.load(f,encoding='latin1')
             test_id = sorted(test_id)
             # build test filenames
             self.filenames_test = []

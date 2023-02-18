@@ -1,4 +1,4 @@
 dataset/
 bbox_gcn_Lited_postprocessing/cfg/layout.yml
 bbox_gcn_Lited_postprocessing/cfg/layout.yml
-Text-to-3D House Model-20230217T030534Z-001.zip
+output_bbox_gcn/
