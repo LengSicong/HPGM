@@ -2,3 +2,5 @@ dataset/
 bbox_gcn_Lited_postprocessing/cfg/layout.yml
 bbox_gcn_Lited_postprocessing/cfg/layout.yml
 output_bbox_gcn/
+bbox_gcn_Lited_postprocessing/__pycache__/
+bbox_gcn_Lited_postprocessing/miscc/__pycache__/
