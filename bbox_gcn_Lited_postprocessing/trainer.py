@@ -420,7 +420,7 @@ class LayoutTrainer(object):
             save_img_results_test(self.imgs_tcpu_test, self.bbox_test, boxes_pred_test_collection, step_test, self.image_dir_eval)
             save_txt_results_bbox(boxes_pred_test_collection, step_test, self.text_dir_eval)
             save_txt_results_bbox(boxes_pred_test_collection_gt, step_test, self.text_dir_eval_gt)
-            # region Processing
+            ## region Processing
             from regionProcessing import RegionProcessor,get_merge_image
             room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen',
                             'washroom', 'study', 'closet', 'storage', 'balcony']
