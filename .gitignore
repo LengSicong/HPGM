@@ -4,3 +4,8 @@ bbox_gcn_Lited_postprocessing/cfg/layout.yml
 output_bbox_gcn/
 bbox_gcn_Lited_postprocessing/__pycache__/
 bbox_gcn_Lited_postprocessing/miscc/__pycache__/
+g2p_dataset/
+g2p_dataset/__pycache__/
+g2p_dataset/layout/
+g2p_dataset/layout/semantic-expression/
+bbox_gcn_Lited_postprocessing/cfg/layout.yml
