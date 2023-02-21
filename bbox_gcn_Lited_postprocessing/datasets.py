@@ -15,6 +15,7 @@ import os
 import os.path
 import sys
 import torch
+import json
 if sys.version_info[0] == 2:
     import cPickle as pickle
 else:
@@ -76,8 +77,11 @@ class TextDataset(data.Dataset):
 
         self.data = []
         self.data_dir = data_dir
-        self.room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen', 
-                             'washroom', 'study', 'closet', 'storage', 'balcony']
+        # self.room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen', 
+        #                      'washroom', 'study', 'closet', 'storage', 'balcony']
+
+        # g2p room classes
+        self.room_classes = ['Bathroom', 'DiningRoom', 'StudyRoom', 'MasterRoom', 'SecondRoom', 'Entrance', 'Balcony', 'Kitchen', 'ChildRoom', 'LivingRoom', 'Wall-in', 'Storage', 'GuestRoom']
         self.position_classes = ['NW', 'N', 'NE', 'W', 'C', 'E', 'SW', 'S', 'SE']
         self.filenames = self.load_filenames(data_dir)
         self.train_set = train_set
@@ -149,6 +153,7 @@ class TextDataset(data.Dataset):
     def build_graph(self, path):
         with open(path, 'rb') as f:
             desc = f.read()
+            # desc = json.loads(desc)
             desc = eval(desc)
             desc_rooms = desc['rooms']
             desc_links = desc['links']
