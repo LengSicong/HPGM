@@ -79,7 +79,6 @@ class TextDataset(data.Dataset):
         self.data_dir = data_dir
         # self.room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen', 
         #                      'washroom', 'study', 'closet', 'storage', 'balcony']
-
         # g2p room classes
         self.room_classes = ['Bathroom', 'DiningRoom', 'StudyRoom', 'MasterRoom', 'SecondRoom', 'Entrance', 'Balcony', 'Kitchen', 'ChildRoom', 'LivingRoom', 'Wall-in', 'Storage', 'GuestRoom']
         self.position_classes = ['NW', 'N', 'NE', 'W', 'C', 'E', 'SW', 'S', 'SE']
@@ -235,8 +234,8 @@ class TextDataset(data.Dataset):
 
     # build a bounding box
     def build_bboxes(self, path):
-        WW = 512
-        HH = 512
+        WW = 256
+        HH = 256
         with open(path, 'rb') as f:
             desc = f.read()
             desc = eval(desc)
@@ -346,28 +345,32 @@ class TextDataset(data.Dataset):
             label_img_name = os.path.join(data_dir, 'label', '{}.png'.format(key))
         else:
             label_img_name = os.path.join(data_dir, 'label_withoutFA_rearrange', '{}.png'.format(key))
-        label_imgs = get_imgs(label_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        # label_imgs = get_imgs(label_img_name, self.imsize, self.transform, normalize_img=self.norm)
 
-        # load mask images
-        mask_img_name = os.path.join(data_dir, 'mask', '{}.png'.format(key))
-        mask_imgs = get_imgs(mask_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        # # load mask images
+        # mask_img_name = os.path.join(data_dir, 'mask', '{}.png'.format(key))
+        # mask_imgs = get_imgs(mask_img_name, self.imsize, self.transform, normalize_img=self.norm)
 
-        # get wrong images
-        wrong_ix = random.randint(0, len(self.filenames_train) - 1)
-        while index == wrong_ix:
-            wrong_ix = random.randint(0, len(self.filenames_train) - 1)
-        wrong_key = self.filenames_train[wrong_ix]
+        # # get wrong images
+        # wrong_ix = random.randint(0, len(self.filenames_train) - 1)
+        # while index == wrong_ix:
+        #     wrong_ix = random.randint(0, len(self.filenames_train) - 1)
+        # wrong_key = self.filenames_train[wrong_ix]
 
-        # load label images
-        if self.furniture == True:
-            wrong_label_img_name = os.path.join(data_dir, 'label', '{}.png'.format(wrong_key))
-        else:
-            wrong_label_img_name = os.path.join(data_dir, 'label_withoutFA_rearrange', '{}.png'.format(wrong_key))
-        wrong_label_imgs = get_imgs(wrong_label_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        # # load label images
+        # if self.furniture == True:
+        #     wrong_label_img_name = os.path.join(data_dir, 'label', '{}.png'.format(wrong_key))
+        # else:
+        #     wrong_label_img_name = os.path.join(data_dir, 'label_withoutFA_rearrange', '{}.png'.format(wrong_key))
+        # wrong_label_imgs = get_imgs(wrong_label_img_name, self.imsize, self.transform, normalize_img=self.norm)
 
-        # load mask images
-        wrong_mask_img_name = os.path.join(data_dir, 'mask', '{}.png'.format(wrong_key))
-        wrong_mask_imgs = get_imgs(wrong_mask_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        # # load mask images
+        # wrong_mask_img_name = os.path.join(data_dir, 'mask', '{}.png'.format(wrong_key))
+        # wrong_mask_imgs = get_imgs(wrong_mask_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        label_imgs = None
+        mask_imgs = None
+        wrong_label_imgs = None
+        wrong_mask_imgs = None
         return label_imgs, mask_imgs, wrong_label_imgs, wrong_mask_imgs, graph, bbox, objs_vector, key
 
     def prepair_test_pairs(self, index):
@@ -382,11 +385,13 @@ class TextDataset(data.Dataset):
             label_img_name = os.path.join(data_dir, 'label', '{}.png'.format(key))
         else:
             label_img_name = os.path.join(data_dir, 'label_withoutFA_rearrange', '{}.png'.format(key))
-        label_imgs = get_imgs_test(label_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        # label_imgs = get_imgs_test(label_img_name, self.imsize, self.transform, normalize_img=self.norm)
 
-        # load mask images
-        mask_img_name = os.path.join(data_dir, 'mask', '{}.png'.format(key))
-        mask_imgs = get_imgs_test(mask_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        # # load mask images
+        # mask_img_name = os.path.join(data_dir, 'mask', '{}.png'.format(key))
+        # mask_imgs = get_imgs_test(mask_img_name, self.imsize, self.transform, normalize_img=self.norm)
+        mask_imgs = None
+        label_imgs = None
 
         # return imgs, wrong_imgs, embedding, key  # captions
         return label_imgs, mask_imgs, graph, bbox, objs_vector, key
@@ -415,15 +420,19 @@ class TextDataset(data.Dataset):
             for b in batch:
                 # print(b[0][-1].size())
                 # assert False
-                label_imgs.append(b[0][-1])
-                mask_imgs.append(b[1][-1])
-                wrong_label_imgs.append(b[2][-1])
-                wrong_mask_imgs.append(b[3][-1])
+                # label_imgs.append(b[0][-1])
+                # mask_imgs.append(b[1][-1])
+                # wrong_label_imgs.append(b[2][-1])
+                # wrong_mask_imgs.append(b[3][-1])
                 graph.append(b[4])
                 bbox.append(b[5])
                 objs_vector.append(b[6])
                 key.append(b[7])
-            label_imgs = torch.stack(label_imgs, dim=0)
+            # label_imgs = torch.stack(label_imgs, dim=0)
+            label_imgs = None
+            mask_imgs = None
+            wrong_label_imgs = None
+            wrong_mask_imgs = None
             return label_imgs, mask_imgs, wrong_label_imgs, wrong_mask_imgs, graph, bbox, objs_vector, key
 
         # test set
@@ -436,11 +445,13 @@ class TextDataset(data.Dataset):
             key = list()
             # batch
             for b in batch:
-                label_imgs.append(b[0][-1])
-                mask_imgs.append(b[1][-1])
+                # label_imgs.append(b[0][-1])
+                # mask_imgs.append(b[1][-1])
                 graph.append(b[2])
                 bbox.append(b[3])
                 objs_vector.append(b[4])
                 key.append(b[5])
-            label_imgs = torch.stack(label_imgs, dim=0)
+            # label_imgs = torch.stack(label_imgs, dim=0)
+            label_imgs = None
+            mask_imgs = None
             return label_imgs, mask_imgs, graph, bbox, objs_vector, key

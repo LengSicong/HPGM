@@ -40,10 +40,11 @@ def save_img_results(imgs_tcpu, real_box, boxes_pred, count, image_dir):
     num = cfg.TRAIN.VIS_COUNT
     # The range of real_img (i.e., self.imgs_tcpu[i][0:num])
     # is changed to [0, 1] by function vutils.save_image
-    real_img = imgs_tcpu[-1][0:num]
-    vutils.save_image(
-        real_img, '%s/count_%09d_real_samples.png' % (image_dir, count),
-        normalize=True)
+    # real_img = imgs_tcpu[-1][0:num]
+    # vutils.save_image(
+    #     real_img, '%s/count_%09d_real_samples.png' % (image_dir, count),
+    #     normalize=True)
+    real_img = None
     # save bounding box images
     vutils.save_bbox(
         real_img, real_box, '%s/count_%09d_real_bbox.png' % (image_dir, count),
@@ -65,11 +66,11 @@ def save_img_results_test(imgs_tcpu, real_box, boxes_pred, count, test_dir):
 
     # The range of real_img (i.e., self.imgs_tcpu[i][0:num])
     # is changed to [0, 1] by function vutils.save_image
-    real_img = imgs_tcpu[-1][0:num]
-    vutils.save_image(
-        real_img, '%s/count_%09d_real_samples.png' % (test_dir, count),
-        normalize=True)
-
+    # real_img = imgs_tcpu[-1][0:num]
+    # vutils.save_image(
+    #     real_img, '%s/count_%09d_real_samples.png' % (test_dir, count),
+    #     normalize=True)
+    real_img = None
     # save bounding box images
     vutils.save_bbox(
         real_img, real_box, '%s/count_%09d_real_bbox.png' % (test_dir, count),
@@ -204,7 +205,8 @@ class LayoutTrainer(object):
 
     def define_models(self):
         if cfg.TRAIN.USE_SIZE_AS_INPUT:
-            objs_vector_dim = 19
+            # objs_vector_dim = 19
+            objs_vector_dim = 23
         else:
             objs_vector_dim = 18
         # build gcn model

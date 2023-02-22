@@ -68,7 +68,7 @@ __C.FLOOR_PLAN.WIN_DOOR = True
 # Extra options
 __C.FURNITURE = False
 __C.IMAGE_CHANNEL = 1
-__C.ROOM_CLASSES = 9
+__C.ROOM_CLASSES = 13
 __C.FIXED_NOISE = False
 __C.USE_NOISE = True
 

@@ -9,3 +9,8 @@ g2p_dataset/__pycache__/
 g2p_dataset/layout/
 g2p_dataset/layout/semantic-expression/
 bbox_gcn_Lited_postprocessing/cfg/layout.yml
+g2p_dataset_haroon_split/
+g2p_dataset_haroon_split/__pycache__/
+g2p_dataset_haroon_split/layout/
+g2p_dataset_haroon_split/layout/semantic-expression/
+bbox_gcn_Lited_postprocessing/cfg/layout.yml
