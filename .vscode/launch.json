@@ -13,6 +13,16 @@
             "justMyCode": true,
             "args": ["--cfg","cfg/layout.yml","--gpu","0"],
             "cwd": "${workspaceFolder}/bbox_gcn_Lited_postprocessing"
+        },
+        {
+            "name": "Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--cfg","cfg/layout_test.yml","--gpu","1"],
+            "cwd": "${workspaceFolder}/bbox_gcn_Lited_postprocessing"
         }
     ]
 }

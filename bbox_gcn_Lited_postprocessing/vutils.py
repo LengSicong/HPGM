@@ -265,7 +265,9 @@ def make_grid_floor_plan(tensor, box, nrow=8, padding=2,
                     assert False
                 # draw box in the current image
                 if label!=-1:
-                    block = draw_floor_plan(block, box[k][0][z], label)
+                    # if label == 0:
+                    #     label = 7
+                    block = draw_floor_plan(block, box[k][0][z], label+1)
                     # print(k, z)
                 else:
                     break

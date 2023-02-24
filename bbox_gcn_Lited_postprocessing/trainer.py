@@ -109,9 +109,11 @@ def save_txt_results(text, count, text_dir):
 def save_txt_results_bbox(boxes, count, text_dir):
     # print(boxes[0][1])
     # assert False
-    room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen', 
-                    'washroom', 'study', 'closet', 'storage', 'balcony']
-    rooms_counter = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    # room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen', 
+    #                 'washroom', 'study', 'closet', 'storage', 'balcony']
+    # rooms_counter = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+    room_classes = ['Bathroom', 'DiningRoom', 'StudyRoom', 'MasterRoom', 'SecondRoom', 'Entrance', 'Balcony', 'Kitchen', 'ChildRoom', 'LivingRoom', 'Wall-in', 'Storage', 'GuestRoom']
+    rooms_counter = [0,0,0,0,0,0,0,0,0,0,0,0,0]
     temp_dir = {}
     temp_dir["rooms"] = {}
     for i in range(len(boxes[0][1])):
@@ -424,11 +426,13 @@ class LayoutTrainer(object):
             save_txt_results_bbox(boxes_pred_test_collection_gt, step_test, self.text_dir_eval_gt)
             ## region Processing
             from regionProcessing import RegionProcessor,get_merge_image
-            room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen',
-                            'washroom', 'study', 'closet', 'storage', 'balcony']
+            # room_classes = ['livingroom', 'bedroom', 'corridor', 'kitchen',
+            #                 'washroom', 'study', 'closet', 'storage', 'balcony']
+            room_classes = ['Bathroom', 'DiningRoom', 'StudyRoom', 'MasterRoom', 'SecondRoom', 'Entrance', 'Balcony', 'Kitchen', 'ChildRoom', 'LivingRoom', 'Wall-in', 'Storage', 'GuestRoom']
             coord_data = [boxes_pred_test.cpu(), self.bbox_test[0][1], room_classes]
             processor = RegionProcessor(coord_data=coord_data)
             lines, rooms = processor.get_lines_from_json()
-            print(lines, rooms)
-            get_merge_image(lines, rooms, processor, self.region_dir_eval, step_test)
+            # print(lines, rooms)
+            ## post-processing to make the floor plan reasonalbe
+            # get_merge_image(lines, rooms, processor, self.region_dir_eval, step_test)
         print('Avg IoU: {}'.format(total_IoU/count_boxes))

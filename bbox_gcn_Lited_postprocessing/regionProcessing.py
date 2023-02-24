@@ -26,7 +26,7 @@ class RegionProcessor():
         if not self.json_data:
             [bbox_pred, bbox_type, room_class] = self.coord_data
             processed_rooms = dict()
-            rooms_counter = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+            rooms_counter = [0, 0, 0, 0, 0, 0, 0, 0, 0,0,0,0,0]
             for i in range(len(bbox_type)):
                 rooms_counter[bbox_type[i]] += 1
                 key = "%s%s" % (room_class[bbox_type[i]], rooms_counter[bbox_type[i]])
