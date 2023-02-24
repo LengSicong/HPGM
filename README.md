@@ -20,8 +20,7 @@ Figure: The overview framework of HPGM.
 
 ## Dependencies
 
-```
-Python==3.7, PyTorch==1.8.1```
+```Python==3.7, PyTorch==1.8.1```
 
 ## Dataset
 
