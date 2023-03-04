@@ -21,6 +21,7 @@ if sys.version_info[0] == 2:
 else:
     import pickle
 import scipy.sparse as sp
+import cv2
 
 
 IMG_EXTENSIONS = ['.jpg', '.JPG', '.jpeg', '.JPEG',
@@ -98,6 +99,9 @@ class TextDataset(data.Dataset):
                 self.filenames_train.append(self.filenames[idx])
             self.filenames_train = sorted(self.filenames_train)
 
+            ##TODO: load boundary Sicong
+            self.boundary_images = self.load_boundary(data_dir, self.filenames_train)
+
             # load graphs(adjacency matrix of a room to every room in a text)
             self.graphs = self.load_graphs(data_dir, self.filenames_train)
 
@@ -106,10 +110,11 @@ class TextDataset(data.Dataset):
 
             # load vectors of objects(1:room_class+size+position class 2:room type)
             self.objs_vectors = self.load_objs_vectors(data_dir, self.filenames_train)
+
             # build iterator
             self.iterator = self.prepair_training_pairs
         else:
-            # load train id of the dataset
+            # load test id of the dataset
             filepath = os.path.join(data_dir, 'test_id.pickle')
             with open(filepath, 'rb') as f:
                 test_id = pickle.load(f,encoding='latin1')
@@ -119,12 +124,15 @@ class TextDataset(data.Dataset):
             for idx in test_id:
                 self.filenames_test.append(self.filenames[idx])
             self.filenames_test = sorted(self.filenames_test)
+            ##TODO: load boundary Sicong
+            self.boundary_images = self.load_boundary(data_dir, self.filenames_test)
             # load graphs
             self.graphs = self.load_graphs(data_dir, self.filenames_test)
             # load bounding boxes
             self.bboxes = self.load_bboxes(data_dir, self.filenames_test)
             # load vectors of objects
             self.objs_vectors = self.load_objs_vectors(data_dir, self.filenames_test)
+            
             # build iterator
             self.iterator = self.prepair_test_pairs
 
@@ -135,6 +143,41 @@ class TextDataset(data.Dataset):
             filenames.append(os.path.splitext(file)[0])
         return sorted(filenames)
 
+    def get_input_boundary(self, boundary, tensor=True):
+        external = boundary[:, :2]
+        door = boundary[:2, :2]
+
+        boundary = np.zeros((128, 128), dtype=float)
+        inside = np.zeros((128, 128), dtype=float)
+        front = np.zeros((128, 128), dtype=float)
+
+        pts = np.concatenate([external, external[:1]]) // 2
+        pts_door = door // 2
+
+        cv2.fillPoly(inside, pts.reshape(1, -1, 2), 1.0)
+        cv2.polylines(boundary, pts.reshape(1, -1, 2), True, 1.0, 3)
+        cv2.polylines(boundary, pts_door.reshape(1, -1, 2), True, 0.5, 3)
+        cv2.polylines(front, pts_door.reshape(1, -1, 2), True, 1.0, 3)
+
+        input_image = np.stack([inside, boundary, front], -1)
+        if tensor: input_image = torch.tensor(input_image).permute((2, 0, 1)).float()
+        return input_image
+    
+    def load_boundary(self, data_dir, filenames):
+        current_dir = os.path.join(data_dir, 'semantic-expression')
+        boundary_images = []
+        for filename in filenames:
+            path = os.path.join(current_dir, '{}.txt'.format(filename))
+            with open(path, 'rb') as f:
+                desc = f.read()
+                # desc = json.loads(desc)
+                desc = eval(desc)
+                boundary = desc['boundary']
+                boundary = np.array(boundary)
+                boundary_image = self.get_input_boundary(boundary)
+                boundary_images.append(boundary_image)
+        return boundary_images
+    
     def load_graphs(self, data_dir, filenames):
         current_dir = os.path.join(data_dir, 'semantic-expression')
         graphs = []
@@ -339,6 +382,7 @@ class TextDataset(data.Dataset):
         graph = self.graphs[index]
         bbox = self.bboxes[index]
         objs_vector = self.objs_vectors[index]
+        boundary_image = self.boundary_images[index]
 
         # load label images
         if self.furniture == True:
@@ -371,7 +415,7 @@ class TextDataset(data.Dataset):
         mask_imgs = None
         wrong_label_imgs = None
         wrong_mask_imgs = None
-        return label_imgs, mask_imgs, wrong_label_imgs, wrong_mask_imgs, graph, bbox, objs_vector, key
+        return label_imgs, mask_imgs, wrong_label_imgs, wrong_mask_imgs, graph, bbox, objs_vector, key, boundary_image
 
     def prepair_test_pairs(self, index):
         # key = self.filenames[index]
@@ -380,6 +424,8 @@ class TextDataset(data.Dataset):
         graph = self.graphs[index]
         bbox = self.bboxes[index]
         objs_vector = self.objs_vectors[index]
+        boundary_image = self.boundary_images[index]
+
         # load label images
         if self.furniture == True:
             label_img_name = os.path.join(data_dir, 'label', '{}.png'.format(key))
@@ -394,7 +440,7 @@ class TextDataset(data.Dataset):
         label_imgs = None
 
         # return imgs, wrong_imgs, embedding, key  # captions
-        return label_imgs, mask_imgs, graph, bbox, objs_vector, key
+        return label_imgs, mask_imgs, graph, bbox, objs_vector, key, boundary_image
 
     def __getitem__(self, index):
         return self.iterator(index)
@@ -407,7 +453,7 @@ class TextDataset(data.Dataset):
 
     def collate_fn(self, batch):
         # training set
-        if len(batch[0]) == 8:
+        if len(batch[0]) == 9:
             label_imgs = list()
             mask_imgs = list()
             wrong_label_imgs = list()
@@ -416,6 +462,7 @@ class TextDataset(data.Dataset):
             bbox = list()
             objs_vector = list()
             key = list()
+            boundary_image = list()
             # batch
             for b in batch:
                 # print(b[0][-1].size())
@@ -428,21 +475,23 @@ class TextDataset(data.Dataset):
                 bbox.append(b[5])
                 objs_vector.append(b[6])
                 key.append(b[7])
+                boundary_image.append(b[8])
             # label_imgs = torch.stack(label_imgs, dim=0)
             label_imgs = None
             mask_imgs = None
             wrong_label_imgs = None
             wrong_mask_imgs = None
-            return label_imgs, mask_imgs, wrong_label_imgs, wrong_mask_imgs, graph, bbox, objs_vector, key
+            return label_imgs, mask_imgs, wrong_label_imgs, wrong_mask_imgs, graph, bbox, objs_vector, key, boundary_image
 
         # test set
-        elif len(batch[0])==6:
+        elif len(batch[0])==7:
             label_imgs = list()
             mask_imgs = list()
             graph = list()
             bbox = list()
             objs_vector = list()
             key = list()
+            boundary_image = list()
             # batch
             for b in batch:
                 # label_imgs.append(b[0][-1])
@@ -451,7 +500,8 @@ class TextDataset(data.Dataset):
                 bbox.append(b[3])
                 objs_vector.append(b[4])
                 key.append(b[5])
+                boundary_image.append(b[6])
             # label_imgs = torch.stack(label_imgs, dim=0)
             label_imgs = None
             mask_imgs = None
-            return label_imgs, mask_imgs, graph, bbox, objs_vector, key
+            return label_imgs, mask_imgs, graph, bbox, objs_vector, key, boundary_image

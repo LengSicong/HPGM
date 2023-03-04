@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args": ["--cfg","cfg/layout.yml","--gpu","0"],
             "cwd": "${workspaceFolder}/bbox_gcn_Lited_postprocessing"
         },

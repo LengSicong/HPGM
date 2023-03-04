@@ -13,3 +13,9 @@ g2p_dataset_haroon_split/
 g2p_dataset_haroon_split/__pycache__/
 g2p_dataset_haroon_split/layout/
 g2p_dataset_haroon_split/layout/semantic-expression/
+g2p_dataset_haroon_split_with_boundary/layout/semantic-expression/00000.txt
+g2p_dataset_haroon_split_with_boundary/
+g2p_dataset_haroon_split_with_boundary/__pycache__/
+g2p_dataset_haroon_split_with_boundary/layout/
+g2p_dataset_haroon_split_with_boundary/layout/semantic-expression/
+g2p_dataset_haroon_split_with_boundary/layout/semantic-expression/00002.txt

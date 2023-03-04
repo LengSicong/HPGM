@@ -12,6 +12,7 @@ from six.moves import range
 from miscc.config import cfg
 from miscc.utils import mkdir_p, bbox_iou, bbox_refiner
 from model_graph import GCN, BBOX_NET
+from model_graph import get_normalization_2d, get_activation, _get_padding, _init_conv, ResidualBlock, Flatten, Interpolate
 plt.switch_backend('agg')
 
 
@@ -181,15 +182,16 @@ class LayoutTrainer(object):
         self.best_epoch = 0
 
     def prepare_data(self, data):
-        label_imgs, _, wrong_label_imgs, _, graph, bbox, objs_vector, key = data
-        vgraph, vbbox, vobjs_vector = [], [], []
+        label_imgs, _, wrong_label_imgs, _, graph, bbox, objs_vector, key, boundary_image = data
+        vgraph, vbbox, vobjs_vector, vboundary_image = [], [], [], []
         if cfg.CUDA:
             for i in range(len(graph)):
                 # vgraph.append((graph[i][0].to(self.device), graph[i][1].to(self.device)))
                 vgraph.append(graph[i].to(self.device))
                 vbbox.append((bbox[i][0].to(self.device), bbox[i][1].to(self.device)))
                 vobjs_vector.append((objs_vector[i][0].to(self.device), objs_vector[i][1].to(self.device)))
-        return label_imgs, vgraph, vbbox, vobjs_vector, key
+                vboundary_image.append(boundary_image[i].to(self.device))
+        return label_imgs, vgraph, vbbox, vobjs_vector, key, vboundary_image
 
     def prepare_data_test(self, data):
         # imgs, w_imgs, t_embedding, _ = data
@@ -204,6 +206,70 @@ class LayoutTrainer(object):
                 vbbox.append((bbox[i][0].to(self.device), bbox[i][1].to(self.device)))
                 vobjs_vector.append((objs_vector[i][0].to(self.device), objs_vector[i][1].to(self.device)))
         return label_imgs, vgraph, vbbox, vobjs_vector, key
+
+    def build_cnn(self, arch, normalization='batch', activation='leakyrelu', padding='same',
+              pooling='max', init='default'):
+
+        if isinstance(arch, str):
+            arch = arch.split(',')
+        cur_C = 3
+        if len(arch) > 0 and arch[0][0] == 'I':
+            cur_C = int(arch[0][1:])
+            arch = arch[1:]
+
+        first_conv = True
+        flat = False
+        layers = []
+        for i, s in enumerate(arch):
+            if s[0] == 'C':
+                if not first_conv:
+                    layers.append(get_normalization_2d(cur_C, normalization))
+                    layers.append(get_activation(activation))
+                first_conv = False
+                vals = [int(i) for i in s[1:].split('-')]
+                if len(vals) == 2:
+                    K, next_C = vals
+                    stride = 1
+                elif len(vals) == 3:
+                    K, next_C, stride = vals
+                # K, next_C = (int(i) for i in s[1:].split('-'))
+                P = _get_padding(K, padding)
+                conv = nn.Conv2d(cur_C, next_C, kernel_size=K, padding=P, stride=stride)
+                layers.append(conv)
+                _init_conv(layers[-1], init)
+                cur_C = next_C
+            elif s[0] == 'R':
+                norm = 'none' if first_conv else normalization
+                res = ResidualBlock(cur_C, normalization=norm, activation=activation,
+                                    padding=padding, init=init)
+                layers.append(res)
+                first_conv = False
+            elif s[0] == 'U':
+                factor = int(s[1:])
+                layers.append(Interpolate(scale_factor=factor, mode='nearest'))
+            elif s[0] == 'P':
+                factor = int(s[1:])
+                if pooling == 'max':
+                    pool = nn.MaxPool2d(kernel_size=factor, stride=factor)
+                elif pooling == 'avg':
+                    pool = nn.AvgPool2d(kernel_size=factor, stride=factor)
+                layers.append(pool)
+            elif s[:2] == 'FC':
+                _, Din, Dout = s.split('-')
+                Din, Dout = int(Din), int(Dout)
+                if not flat:
+                    layers.append(Flatten())
+                flat = True
+                layers.append(nn.Linear(Din, Dout))
+                if i + 1 < len(arch):
+                    layers.append(get_activation(activation))
+                cur_C = Dout
+            else:
+                raise ValueError('Invalid layer "%s"' % s)
+        layers = [layer for layer in layers if layer is not None]
+        # for layer in layers:
+        #   print(layer)
+        return nn.Sequential(*layers), cur_C
 
     def define_models(self):
         if cfg.TRAIN.USE_SIZE_AS_INPUT:
@@ -224,7 +290,19 @@ class LayoutTrainer(object):
         mlp_normalization = 'none'
         box_net_layers = [gconv_dim, gconv_hidden_dim, box_net_dim]
         box_net = BBOX_NET(box_net_layers, batch_norm=mlp_normalization)
-        return gcn, box_net
+        ''' inside_cnn '''
+        input_dim=3
+        inside_cnn_arch="C3-32-2,C3-64-2,C3-128-2,C3-256-2"
+        inside_cnn,inside_feat_dim = self.build_cnn(
+            f'I{input_dim},{inside_cnn_arch}',
+            padding='valid'
+        )
+        inside_cnn = nn.Sequential(
+        inside_cnn,
+        nn.AdaptiveAvgPool2d(1)
+        )
+        boundary_mlp = nn.Linear(inside_feat_dim, 23)
+        return gcn, box_net, inside_cnn, boundary_mlp
 
 
     def train(self):
@@ -235,9 +313,9 @@ class LayoutTrainer(object):
         self.testing_error = []
         # define models
         if cfg.TRAIN.USE_GCN:
-            self.gcn, self.box_net = self.define_models()
+            self.gcn, self.box_net, self.inside_cnn, self.boundary_mlp = self.define_models()
         else:
-            _, self.box_net = self.define_models()
+            _, self.box_net, self.inside_cnn, self.boundary_mlp = self.define_models()
 
         # load gcn checkpoints
         if cfg.TRAIN.GCN != '':
@@ -253,6 +331,10 @@ class LayoutTrainer(object):
             self.gcn, cfg.GCN.LR, cfg.GCN.WEIGHT_DECAY)
         self.optimizer_bbox = define_optimizers(
             self.box_net, cfg.BBOX.LR, cfg.BBOX.WEIGHT_DECAY)
+        self.optimizer_inside_cnn = define_optimizers(
+            self.inside_cnn, cfg.BBOX.LR, cfg.BBOX.WEIGHT_DECAY)
+        self.optimizer_boundary_mlp = define_optimizers(
+            self.boundary_mlp, cfg.BBOX.LR, cfg.BBOX.WEIGHT_DECAY)
 
         # criterion function
         self.criterion_bbox = nn.MSELoss()
@@ -262,6 +344,8 @@ class LayoutTrainer(object):
             # model
             self.gcn.to(self.device)
             self.box_net.to(self.device)
+            self.inside_cnn.to(self.device)
+            self.boundary_mlp.to(self.device)
         predictions = []
         start_epoch = 0
         for epoch in range(start_epoch, self.max_epoch):
@@ -273,14 +357,20 @@ class LayoutTrainer(object):
                 #######################################################
                 # (0) Prepare training data
                 ######################################################
-                self.imgs_tcpu, self.graph, self.real_box, self.objs_vector, self.key = self.prepare_data(data)
+                self.imgs_tcpu, self.graph, self.real_box, self.objs_vector, self.key, self.boundary_image = self.prepare_data(data)
                 #######################################################
                 # (1) Generate layout position
                 ######################################################
                 self.box_net.train()
+                self.inside_cnn.train()
+                ##TODO: Sicong for boundary encoding
+                inside_boundary_vectors = self.inside_cnn(torch.cat([tensor.unsqueeze(0) for tensor in self.boundary_image], dim=0)).view(len(self.real_box), -1)
                 # for each image
                 for i in range(len(self.real_box)):
                     graph_objs_vector = self.gcn(self.objs_vector[i][0], self.graph[i])
+                    inside_boundary_vector = self.boundary_mlp(inside_boundary_vectors[i])
+                    inside_boundary_vector = torch.cat([inside_boundary_vector.unsqueeze(0)]*graph_objs_vector.shape[0], dim=0)
+                    graph_objs_vector = torch.add(graph_objs_vector, inside_boundary_vector)
                     boxes_pred = self.box_net(self.objs_vector[i][0], graph_objs_vector)
                     # optimization
                     if i == 0:
@@ -291,9 +381,13 @@ class LayoutTrainer(object):
                 err_total = cfg.TRAIN.COEFF.BBOX_LOSS * err_bbox
                 self.optimizer_gcn.zero_grad()
                 self.optimizer_bbox.zero_grad()
+                self.optimizer_inside_cnn.zero_grad()
+                self.optimizer_boundary_mlp.zero_grad()
                 err_total.backward()
                 self.optimizer_gcn.step()
                 self.optimizer_bbox.step()
+                self.optimizer_inside_cnn.step()
+                self.optimizer_boundary_mlp.step()
 
             # save the best models
             print('comparing total loss...')

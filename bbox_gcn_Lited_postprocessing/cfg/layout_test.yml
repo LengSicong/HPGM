@@ -1,7 +1,7 @@
 CONFIG_NAME: '3stages'
 
-DATASET_NAME: 'g2p_layout_haroon_split'
-DATA_DIR: '/home/sicong/HPGM/g2p_dataset_haroon_split/layout'
+DATASET_NAME: 'g2p_layout_haroon_split_with_boundary'
+DATA_DIR: '/home/sicong/HPGM/g2p_dataset_haroon_split_with_boundary/layout'
 GPU_ID: '0'
 WORKERS: 0
 
@@ -24,7 +24,7 @@ TRAIN:
       BBOX_LOSS: 300.0 #100
 
 EVAL:
-    OUTPUT_DIR: '/home/sicong/HPGM/output_bbox_gcn/g2p_layout_haroon_split_3stages_2023_02_22_17_30_32/'
+    OUTPUT_DIR: '/home/sicong/HPGM/output_bbox_gcn/g2p_layout_haroon_split_with_boundary_3stages_2023_02_22_17_30_32/'
     GRAPH_PRE_NET: 'graph_prediction_net_best.pth'
     GCN: 'gcn_best.pth'
     BOX_NET: 'box_net_best.pth'

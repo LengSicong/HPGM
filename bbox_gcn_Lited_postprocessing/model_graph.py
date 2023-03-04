@@ -119,3 +119,95 @@ def build_mlp(dim_list, activation='relu', batch_norm='none',
             layers.append(nn.Dropout(p=dropout))
     return nn.Sequential(*layers)
 
+def get_normalization_2d(channels, normalization):
+    if normalization == 'instance':
+        return nn.InstanceNorm2d(channels)
+    elif normalization == 'batch':
+        return nn.BatchNorm2d(channels)
+    elif normalization == 'none':
+        return None
+    else:
+        raise ValueError('Unrecognized normalization type "%s"' % normalization)
+
+def get_activation(name):
+    kwargs = {}
+    if name.lower().startswith('leakyrelu'):
+        if '-' in name:
+            slope = float(name.split('-')[1])
+            kwargs = {'negative_slope': slope}
+    name = 'leakyrelu'
+    activations = {
+        'relu': nn.ReLU,
+        'leakyrelu': nn.LeakyReLU,
+    }
+    if name.lower() not in activations:
+        raise ValueError('Invalid activation "%s"' % name)
+    return activations[name.lower()](**kwargs)
+
+def _get_padding(K, mode):
+    """ Helper method to compute padding size """
+    if mode == 'valid':
+        return 0
+    elif mode == 'same':
+        assert K % 2 == 1, 'Invalid kernel size %d for "same" padding' % K
+        return (K - 1) // 2
+    
+def _init_conv(layer, method):
+    if not isinstance(layer, nn.Conv2d):
+        return
+    if method == 'default':
+        return
+    elif method == 'kaiming-normal':
+        nn.init.kaiming_normal(layer.weight)
+    elif method == 'kaiming-uniform':
+        nn.init.kaiming_uniform(layer.weight)
+
+class ResidualBlock(nn.Module):
+    def __init__(self, channels, normalization='batch', activation='relu',
+                 padding='same', kernel_size=3, init='default'):
+        super(ResidualBlock, self).__init__()
+
+        K = kernel_size
+        P = _get_padding(K, padding)
+        C = channels
+        self.padding = P
+        layers = [
+            get_normalization_2d(C, normalization),
+            get_activation(activation),
+            nn.Conv2d(C, C, kernel_size=K, padding=P),
+            get_normalization_2d(C, normalization),
+            get_activation(activation),
+            nn.Conv2d(C, C, kernel_size=K, padding=P),
+        ]
+        layers = [layer for layer in layers if layer is not None]
+        for layer in layers:
+            _init_conv(layer, method=init)
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        P = self.padding
+        shortcut = x
+        if P == 0:
+            shortcut = x[:, :, P:-P, P:-P]
+        y = self.net(x)
+        return shortcut + self.net(x)
+    
+from torch.nn.functional import interpolate    
+class Interpolate(nn.Module):
+    def __init__(self, size=None, scale_factor=None, mode='nearest', align_corners=None):
+        super(Interpolate, self).__init__()
+        self.size = size
+        self.scale_factor = scale_factor
+        self.mode = mode
+        self.align_corners = align_corners
+
+    def forward(self, x):
+        return interpolate(x, size=self.size, scale_factor=self.scale_factor, mode=self.mode,
+                           align_corners=self.align_corners)
+
+class Flatten(nn.Module):
+    def forward(self, x):
+        return x.view(x.size(0), -1)
+
+    def __repr__(self):
+        return 'Flatten()'
