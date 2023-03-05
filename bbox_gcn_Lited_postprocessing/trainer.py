@@ -195,17 +195,18 @@ class LayoutTrainer(object):
 
     def prepare_data_test(self, data):
         # imgs, w_imgs, t_embedding, _ = data
-        label_imgs, _, graph, bbox, objs_vector, key = data
+        label_imgs, _, graph, bbox, objs_vector, key, boundary_image = data
 
         # real_vimgs = []
-        vgraph, vbbox, vobjs_vector = [], [], []
+        vgraph, vbbox, vobjs_vector, vboundary_image = [], [], [], []
         if cfg.CUDA:
             for i in range(len(graph)):
                 # vgraph.append((graph[i][0].to(self.device), graph[i][1].to(self.device)))
                 vgraph.append(graph[i].to(self.device))
                 vbbox.append((bbox[i][0].to(self.device), bbox[i][1].to(self.device)))
                 vobjs_vector.append((objs_vector[i][0].to(self.device), objs_vector[i][1].to(self.device)))
-        return label_imgs, vgraph, vbbox, vobjs_vector, key
+                vboundary_image.append(boundary_image[i].to(self.device))
+        return label_imgs, vgraph, vbbox, vobjs_vector, key, vboundary_image
 
     def build_cnn(self, arch, normalization='batch', activation='leakyrelu', padding='same',
               pooling='max', init='default'):
@@ -301,7 +302,8 @@ class LayoutTrainer(object):
         inside_cnn,
         nn.AdaptiveAvgPool2d(1)
         )
-        boundary_mlp = nn.Linear(inside_feat_dim, 23)
+        boundary_mlp = nn.Sequential(nn.Linear(inside_feat_dim, 23), nn.ReLU())
+        # nn.Linear(inside_feat_dim, 23)
         return gcn, box_net, inside_cnn, boundary_mlp
 
 
@@ -361,8 +363,10 @@ class LayoutTrainer(object):
                 #######################################################
                 # (1) Generate layout position
                 ######################################################
+                self.gcn.train() if cfg.TRAIN.USE_GCN else None
                 self.box_net.train()
                 self.inside_cnn.train()
+                self.boundary_mlp.train()
                 ##TODO: Sicong for boundary encoding
                 inside_boundary_vectors = self.inside_cnn(torch.cat([tensor.unsqueeze(0) for tensor in self.boundary_image], dim=0)).view(len(self.real_box), -1)
                 # for each image
@@ -370,7 +374,7 @@ class LayoutTrainer(object):
                     graph_objs_vector = self.gcn(self.objs_vector[i][0], self.graph[i])
                     inside_boundary_vector = self.boundary_mlp(inside_boundary_vectors[i])
                     inside_boundary_vector = torch.cat([inside_boundary_vector.unsqueeze(0)]*graph_objs_vector.shape[0], dim=0)
-                    graph_objs_vector = torch.add(graph_objs_vector, inside_boundary_vector)
+                    graph_objs_vector = torch.add(graph_objs_vector, inside_boundary_vector*cfg.TRAIN.COEFF.BOUNDARY_VEC)
                     boxes_pred = self.box_net(self.objs_vector[i][0], graph_objs_vector)
                     # optimization
                     if i == 0:
@@ -399,6 +403,10 @@ class LayoutTrainer(object):
                            model_name='gcn', best=True)
                 save_model(model=self.box_net, epoch=epoch, model_dir=self.model_dir,
                            model_name='box_net', best=True)
+                save_model(model=self.inside_cnn, epoch=epoch, model_dir=self.model_dir,
+                            model_name='inside_cnn', best=True)
+                save_model(model=self.boundary_mlp, epoch=epoch, model_dir=self.model_dir,
+                            model_name='boundary_mlp', best=True)
             print('\033[1;31m current_epoch[{}] current_loss[{}] \033[0m \033[1;34m best_epoch[{}] best_loss[{}] \033[0m'.format(
                     epoch, err_total.item(), self.best_epoch, self.best_loss))
 
@@ -408,6 +416,8 @@ class LayoutTrainer(object):
             if epoch % cfg.TRAIN.SNAPSHOT_INTERVAL == 0:
                 self.gcn.eval()
                 self.box_net.eval()
+                self.inside_cnn.eval()
+                self.boundary_mlp.eval()
                 boxes_pred_collection = []
                 for i in range(len(self.real_box)):
                     graph_objs_vector = self.gcn(self.objs_vector[i][0], self.graph[i])
@@ -421,10 +431,14 @@ class LayoutTrainer(object):
                 print('generating the test data...')
                 for step_test, data_test in enumerate(self.dataloader_test, 0):
                     # get data
-                    self.imgs_tcpu_test, self.graph_test, self.bbox_test, self.objs_vector_test, self.key_test = self.prepare_data_test(data_test)
+                    self.imgs_tcpu_test, self.graph_test, self.bbox_test, self.objs_vector_test, self.key_test, self.boundary_image = self.prepare_data_test(data_test)
                     boxes_pred_test_collection = []
+                    inside_boundary_vectors_test = self.inside_cnn(torch.cat([tensor.unsqueeze(0) for tensor in self.boundary_image], dim=0)).view(len(self.real_box), -1)
                     for i in range(len(self.bbox_test)):
                         graph_objs_vector_test = self.gcn(self.objs_vector_test[i][0], self.graph_test[i])
+                        inside_boundary_vector_test = self.boundary_mlp(inside_boundary_vectors_test[i])
+                        inside_boundary_vector_test = torch.cat([inside_boundary_vector_test.unsqueeze(0)]*graph_objs_vector_test.shape[0], dim=0)
+                        graph_objs_vector_test = torch.add(graph_objs_vector_test, inside_boundary_vector_test*cfg.TRAIN.COEFF.BOUNDARY_VEC)
                         # bounding box prediction
                         boxes_pred_test = self.box_net(self.objs_vector_test[i][0], graph_objs_vector_test)
                         boxes_pred_test_collection.append((boxes_pred_test, self.bbox_test[i][1]))
@@ -475,6 +489,10 @@ class LayoutTrainer(object):
                            model_name='gcn', best=False)
                 save_model(model=self.box_net, epoch=epoch, model_dir=self.model_dir,
                            model_name='box_net', best=False)
+                save_model(model=self.inside_cnn, epoch=epoch, model_dir=self.model_dir,
+                           model_name='inside_cnn', best=False)
+                save_model(model=self.boundary_mlp, epoch=epoch, model_dir=self.model_dir,
+                           model_name='boundary_mlp', best=False)
 
     # evaluate the trained models
     def evaluate(self):
@@ -490,11 +508,23 @@ class LayoutTrainer(object):
             self.box_net.load_state_dict(
                 torch.load(os.path.join(cfg.EVAL.OUTPUT_DIR, 'Model',
                            cfg.EVAL.BOX_NET)))
+        # load inside_cnn
+        self.inside_cnn.load_state_dict(
+            torch.load(os.path.join(cfg.EVAL.OUTPUT_DIR, 'Model',
+                          cfg.EVAL.INSIDE_CNN)))
+        # load boundary_mlp
+        self.boundary_mlp.load_state_dict(
+            torch.load(os.path.join(cfg.EVAL.OUTPUT_DIR, 'Model',
+                            cfg.EVAL.BOUNDARY_MLP)))
         if cfg.CUDA:
             self.gcn.to(self.device)
             self.box_net.to(self.device)
+            self.inside_cnn.to(self.device)
+            self.boundary_mlp.to(self.device)
         self.gcn.eval()
         self.box_net.eval()
+        self.inside_cnn.eval()
+        self.boundary_mlp.eval()
 
         # evaluate the model
         print('evaluating the test data...')
@@ -502,11 +532,15 @@ class LayoutTrainer(object):
         count_boxes = 0
         for step_test, data_test in enumerate(self.dataloader_test, 1):
             # get data
-            self.imgs_tcpu_test, self.graph_test, self.bbox_test, self.objs_vector_test, self.key_test = self.prepare_data_test(data_test)
+            self.imgs_tcpu_test, self.graph_test, self.bbox_test, self.objs_vector_test, self.key_test, self.boundary_image = self.prepare_data_test(data_test)
             boxes_pred_test_collection = []
             boxes_pred_test_collection_gt = []
+            inside_boundary_vectors_test = self.inside_cnn(torch.cat([tensor.unsqueeze(0) for tensor in self.boundary_image], dim=0)).view(len(self.real_box), -1)
             for i in range(len(self.bbox_test)):
                 graph_objs_vector_test = self.gcn(self.objs_vector_test[i][0], self.graph_test[i])
+                inside_boundary_vector_test = self.boundary_mlp(inside_boundary_vectors_test[i])
+                inside_boundary_vector_test = torch.cat([inside_boundary_vector_test.unsqueeze(0)]*graph_objs_vector_test.shape[0], dim=0)
+                graph_objs_vector_test = torch.add(graph_objs_vector_test, inside_boundary_vector_test*cfg.TRAIN.COEFF.BOUNDARY_VEC)
                 # bounding box prediction
                 boxes_pred_test = self.box_net(self.objs_vector_test[i][0], graph_objs_vector_test)
                 IoU, num_boxes = bbox_iou(boxes_pred_test, self.bbox_test[i][0])

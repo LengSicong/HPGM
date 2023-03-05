@@ -28,6 +28,8 @@ EVAL:
     GRAPH_PRE_NET: 'graph_prediction_net_best.pth'
     GCN: 'gcn_best.pth'
     BOX_NET: 'box_net_best.pth'
+    INSIDE_CNN: 'inside_cnn_best.pth'
+    BOUNDARY_MLP: 'boundary_mlp_best.pth'
 
 FLOOR_PLAN:
     WIN_DOOR: True
